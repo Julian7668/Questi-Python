@@ -160,14 +160,7 @@ class Questi:
         def wrapper(*args, **kwargs):
             if entrada := questionary_func(*args, **kwargs):
                 return entrada
-            print(
-                Questi().modulo_mensajes.get(
-                    inspect.stack()[1].filename.split("\\")[-1],
-                    "¡Gracias por usar!",
-                )
-            )
-            time.sleep(1)
-            sys.exit(0)
+            return Questi().exit()
 
         return wrapper
 
