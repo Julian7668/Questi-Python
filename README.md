@@ -170,7 +170,7 @@ questi.modulo_mensajes.update({
 
 ## 📝 Changelog
 
-### v1.0.0 (2024)
+### v1.0.0 (2025)
 - ✨ Lanzamiento inicial
 - 🛡️ Manejo automático de interrupciones
 - ✅ Validaciones para enteros, flotantes y strings
