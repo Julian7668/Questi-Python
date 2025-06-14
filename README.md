@@ -1,223 +1,127 @@
-# Questi-Python 🐍
+# Questi Module 🎯
 
-Un wrapper elegante para la librería `questionary` que facilita la recolección de entrada del usuario con validación automática y manejo elegante de cancelaciones en Python.
+Un wrapper elegante y robusto para la librería `questionary` que simplifica la creación de interfaces de línea de comandos interactivas con manejo automático de errores y validaciones predefinidas.
 
-## 🚀 Características
+## ✨ Características
 
-- ✅ **Validación automática** de entrada vacía
-- 🔢 **Validación numérica** para enteros y flotantes con rangos específicos
-- ❌ **Manejo automático** de cancelaciones del usuario (Ctrl+C)
-- 🎯 **Validadores personalizados** para casos específicos
-- 📋 **Selecciones interactivas** y confirmaciones
-- 💬 **Mensajes de despedida personalizados** por módulo
+- **Manejo automático de salidas**: Gestiona elegantemente las interrupciones del usuario (Ctrl+C, ESC)
+- **Validaciones predefinidas**: Soporte para texto, enteros y flotantes con rangos personalizables
+- **Mensajes personalizados**: Mensajes de despedida específicos por módulo
+- **Callbacks customizables**: Funciones personalizadas para manejar salidas
+- **Interfaz simplificada**: API intuitiva para entrada de texto, menús de selección y confirmaciones
+- **Documentación completa**: Type hints y docstrings detallados
 
-## 📦 Instalación
-
-Primero, instala la dependencia requerida:
+## 🚀 Instalación
 
 ```bash
 pip install questionary
 ```
 
-Luego, descarga el archivo `questi.py` y colócalo en tu proyecto, o clona este repositorio:
+## 📖 Uso Básico
 
-```bash
-git clone https://github.com/Julian7568/Questi-Python.git
-```
-
-## 🔧 Uso Básico
-
+### Importar el módulo
 ```python
-from questi import questi
-
-# Entrada de texto básica
-nombre = questi.text("Ingresa tu nombre: ")
-
-# Número entero con validación de rango
-edad = questi.text("Ingresa tu edad: ", validate_user=2.0, inicio_rango=0, fin_rango=120)
-
-# Número flotante
-peso = questi.text("Peso (kg): ", validate_user=3.0, inicio_rango=0, fin_rango=500)
-
-# Selección múltiple
-lenguaje = questi.select("Tu lenguaje favorito:", ["Python", "JavaScript", "Java", "C++"])
-
-# Confirmación
-continuar = questi.confirm("¿Deseas continuar?")
-
-if continuar:
-    print("¡Continuando con el programa!")
-else:
-    questi.exit()  # Salida elegante
+from questi_module import questi
 ```
 
-## 📚 Tipos de Validación
-
-### 1. Validación de Texto (`validate_user=1.0`)
+### Entrada de texto simple
 ```python
-# Valida que la entrada no esté vacía (por defecto)
-nombre = questi.text("Tu nombre: ")
+nombre = questi.text("¿Cuál es tu nombre?")
 ```
 
-### 2. Validación de Números Enteros
-
+### Validación de enteros con rango
 ```python
-# Rango cerrado [min, max]
-edad = questi.text("Edad: ", validate_user=2.0, inicio_rango=0, fin_rango=120)
-
-# Solo mínimo
-cantidad = questi.text("Cantidad: ", validate_user=2.1, inicio_rango=1)
-
-# Solo máximo  
-intentos = questi.text("Intentos: ", validate_user=2.2, fin_rango=10)
+edad = questi.text("¿Cuál es tu edad?", validate_user=2.0, inicio_rango=0, fin_rango=120)
 ```
 
-### 3. Validación de Números Flotantes
-
+### Validación de flotantes
 ```python
-# Rango cerrado para flotantes
-precio = questi.text("Precio: ", validate_user=3.0, inicio_rango=0.0, fin_rango=1000.0)
-
-# Solo mínimo para flotantes
-descuento = questi.text("Descuento: ", validate_user=3.1, inicio_rango=0.01)
-
-# Solo máximo para flotantes
-comision = questi.text("Comisión: ", validate_user=3.2, fin_rango=100.0)
+precio = questi.text("Ingrese el precio:", validate_user=3.1, inicio_rango=0.01)
 ```
 
-### 4. Validadores Personalizados
-
+### Menú de selección
 ```python
-# Validación de email
-email = questi.text("Email: ", validate_user=lambda x: "@" in x and "." in x)
-
-# Validación de contraseña
-password = questi.text("Password: ", 
-    validate_user=lambda x: len(x) >= 8 and any(c.isdigit() for c in x))
-
-# Sin validación
-comentario = questi.text("Comentarios: ", validate_user=None)
+opciones = ["1. Crear usuario", "2. Eliminar usuario", "3. Salir"]
+eleccion = questi.select("¿Qué desea hacer?", opciones, indice=0)
 ```
 
-## 🎯 Ejemplos Prácticos
-
-### Calculadora Simple
+### Confirmación
 ```python
-from questi import questi
-
-print("=== Calculadora Simple ===")
-
-num1 = float(questi.text("Primer número: ", validate_user=3.0))
-operacion = questi.select("Operación:", ["+", "-", "*", "/"])
-num2 = float(questi.text("Segundo número: ", validate_user=3.0))
-
-if operacion == "+":
-    resultado = num1 + num2
-elif operacion == "-":
-    resultado = num1 - num2
-elif operacion == "*":
-    resultado = num1 * num2
-elif operacion == "/":
-    if num2 != 0:
-        resultado = num1 / num2
-    else:
-        print("Error: División por cero")
-        questi.exit()
-
-print(f"Resultado: {resultado}")
-
-if questi.confirm("¿Realizar otra operación?"):
-    print("¡Reinicia el programa!")
-else:
-    questi.exit()
+if questi.confirm("¿Está seguro de continuar?"):
+    print("Continuando...")
 ```
 
-### Sistema de Login
-```python
-from questi import questi
+## 🔧 Tipos de Validación
 
-print("=== Sistema de Login ===")
-
-usuario = questi.text("Usuario: ")
-password = questi.text("Contraseña: ", 
-    validate_user=lambda x: len(x) >= 6)
-
-# Simular validación
-if usuario == "admin" and password == "123456":
-    print("¡Login exitoso!")
-    
-    accion = questi.select("¿Qué deseas hacer?", [
-        "Ver perfil",
-        "Configuraciones", 
-        "Cerrar sesión"
-    ])
-    
-    print(f"Seleccionaste: {accion}")
-else:
-    print("Credenciales incorrectas")
-    
-questi.exit()
-```
-
-## 🛠️ Características Avanzadas
-
-### Mensajes de Despedida Personalizados
-```python
-# En tu archivo principal, agrega mensajes personalizados
-questi.modulo_mensajes["mi_programa.py"] = "¡Gracias por usar Mi Programa!"
-```
-
-### Manejo de Cancelaciones
-Tutti maneja automáticamente cuando el usuario presiona `Ctrl+C` o `ESC`, mostrando un mensaje de despedida apropiado y terminando el programa de forma elegante.
-
-## 📋 Métodos Disponibles
-
-| Método | Descripción | Retorna |
+| Código | Descripción | Ejemplo |
 |--------|-------------|---------|
-| `text(mensaje, validate_user, inicio_rango, fin_rango)` | Solicita entrada de texto con validación | `str` |
-| `select(mensaje, opciones)` | Muestra menú de selección | `str` |
-| `confirm(mensaje)` | Pregunta de confirmación sí/no | `bool` |
-| `exit()` | Termina el programa elegantemente | `None` |
+| `1.0` | Texto no vacío | `questi.text("Nombre:", 1.0)` |
+| `2.0` | Entero en rango [min, max] | `questi.text("Edad:", 2.0, 0, 120)` |
+| `2.1` | Entero >= min | `questi.text("Cantidad:", 2.1, 1)` |
+| `2.2` | Entero <= max | `questi.text("Puntos:", 2.2, fin_rango=100)` |
+| `3.0` | Float en rango [min, max] | `questi.text("Precio:", 3.0, 0.0, 999.99)` |
+| `3.1` | Float >= min | `questi.text("Temperatura:", 3.1, -273.15)` |
+| `3.2` | Float <= max | `questi.text("Porcentaje:", 3.2, fin_rango=100.0)` |
+| `función` | Validación personalizada | `questi.text("Email:", lambda x: "@" in x)` |
 
-## 🔧 Códigos de Validación
+## 🎨 Ejemplos Avanzados
 
-| Código | Tipo | Descripción |
-|--------|------|-------------|
-| `1.0` | Texto | No vacío (por defecto) |
-| `2.0` | Entero | Rango [inicio_rango, fin_rango] |
-| `2.1` | Entero | Mínimo inicio_rango |
-| `2.2` | Entero | Máximo fin_rango |
-| `3.0` | Flotante | Rango [inicio_rango, fin_rango] |
-| `3.1` | Flotante | Mínimo inicio_rango |
-| `3.2` | Flotante | Máximo fin_rango |
-| `callable` | Personalizado | Función que retorna bool |
-| `None` | Sin validación | Acepta cualquier entrada |
+### Validación personalizada
+```python
+def validar_email(email):
+    return "@" in email and "." in email.split("@")[1]
+
+email = questi.text("Ingrese su email:", validate_user=validar_email)
+```
+
+### Callback personalizado de salida
+```python
+def mi_callback():
+    print("¡Operación cancelada!")
+    return None
+
+resultado = questi.text("Dato:", exit_callback=mi_callback)
+```
+
+### Configurar mensajes por módulo
+```python
+# Agregar mensaje personalizado para tu archivo
+questi.modulo_mensajes["mi_script.py"] = "¡Gracias por usar mi aplicación!"
+```
+
+## 🏗️ Estructura del Código
+
+```
+questi_module.py
+├── Classe Questi
+│   ├── _questi_handler()    # Decorador para manejo de salidas
+│   ├── text()              # Entrada de texto con validación
+│   ├── select()            # Menú de selección
+│   ├── confirm()           # Confirmación Sí/No
+│   ├── exit()              # Salida elegante
+│   └── exit_error()        # Salida con error
+└── questi (instancia global)
+```
 
 ## 🤝 Contribuciones
 
-¡Las contribuciones son bienvenidas! Si tienes ideas para mejorar Questi-Python:
+Las contribuciones son bienvenidas. Por favor:
 
-1. Haz fork del repositorio
-2. Crea una nueva rama (`git checkout -b feature/nueva-funcionalidad`)
-3. Commit tus cambios (`git commit -am 'Agregar nueva funcionalidad'`)
-4. Push a la rama (`git push origin feature/nueva-funcionalidad`)
+1. Fork el proyecto
+2. Crea una rama para tu feature (`git checkout -b feature/nueva-caracteristica`)
+3. Commit tus cambios (`git commit -m 'feat: add nueva característica'`)
+4. Push a la rama (`git push origin feature/nueva-caracteristica`)
 5. Abre un Pull Request
 
-## 📄 Licencia
+## 📝 Licencia
 
-Este proyecto está bajo la Licencia MIT. Consulta el archivo `LICENSE` para más detalles.
-
-## 👨‍💻 Autor
-
-**Julian7568** - Estudiante de bachillerato apasionado por Python y la programación.
-
-- GitHub: [@Julian7568](https://github.com/Julian7568)
+Este proyecto está bajo la licencia MIT. Ver el archivo `LICENSE` para más detalles.
 
 ## 🙏 Agradecimientos
 
-- [questionary](https://github.com/tmbo/questionary) - La librería base que hace posible este wrapper
-- La comunidad de Python por su apoyo y recursos educativos
+- [questionary](https://github.com/tmbo/questionary) - La excelente librería que hace posible este wrapper
+- La comunidad de Python por sus herramientas increíbles
 
 ---
 
-⭐ **¡Si te gusta este proyecto, dale una estrella en GitHub!** ⭐
+**¡Hecho con ❤️ para simplificar la creación de CLIs interactivas!**
