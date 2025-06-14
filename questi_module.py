@@ -61,7 +61,7 @@ class Questi:
                     return resultado
                 if exit_callback:
                     return exit_callback()
-                return Questi().exit()
+                return questi.exit()
 
             return wrapper
 
@@ -75,61 +75,133 @@ class Questi:
         fin_rango: float = float("inf"),
         exit_callback: Optional[Callable[[], Any]] = None,
     ) -> str:
-        """
-        Solicita entrada de texto del usuario con validaciones predefinidas.
+        """Solicita entrada de texto al usuario con validación personalizable.
 
-        Validaciones disponibles:
-        - 1.0: Solo texto no vacío
-        - 2.0: Entero dentro del rango [inicio_rango, fin_rango]
-        - 2.1: Entero >= inicio_rango
-        - 2.2: Entero <= fin_rango
-        - 3.0: Float dentro del rango [inicio_rango, fin_rango]
-        - 3.1: Float >= inicio_rango
-        - 3.2: Float <= fin_rango
+        Este método proporciona una interfaz para obtener input del usuario con diferentes
+        tipos de validación predefinidas o personalizadas, incluyendo validación de texto,
+        enteros y flotantes con rangos opcionales.
 
         Args:
-            mensaje: Texto a mostrar al usuario.
-            validate_user: Código de validación (float) o función lambda personalizada.
-            inicio_rango: Valor mínimo para validaciones numéricas.
-            fin_rango: Valor máximo para validaciones numéricas.
-            exit_callback: Función a ejecutar si el usuario cancela.
+            mensaje (str, optional): Mensaje que se muestra al usuario para solicitar
+                la entrada. Defaults to "Ingrese algun valor:".
+            validate_user (Union[float, Callable[[str], bool]], optional): Tipo de
+                validación a aplicar. Puede ser:
+                - 1.0: Texto no vacío
+                - 2.0: Entero dentro del rango [inicio_rango, fin_rango]
+                - 2.1: Entero >= inicio_rango
+                - 2.2: Entero <= fin_rango
+                - 3.0: Float dentro del rango [inicio_rango, fin_rango]
+                - 3.1: Float >= inicio_rango
+                - 3.2: Float <= fin_rango
+                - Callable: Función personalizada de validación
+                Defaults to 1.0.
+            inicio_rango (float, optional): Valor mínimo para validaciones numéricas.
+                Defaults to float("-inf").
+            fin_rango (float, optional): Valor máximo para validaciones numéricas.
+                Defaults to float("inf").
+            exit_callback (Optional[Callable[[], Any]], optional): Función callback
+                a ejecutar en caso de salida. Defaults to None.
 
         Returns:
-            str: El texto ingresado por el usuario que pasó la validación.
+            str: El texto ingresado por el usuario que ha pasado la validación.
 
         Raises:
-            SystemExit: Si validate_user no es válido.
+            ValueError: Si validate_user no es un tipo de validación válido.
 
-        Example:
-            >>> questi.text("Nombre:", validate_user=1.0)
-            >>> questi.text("Edad:", validate_user=2.0, inicio_rango=0, fin_rango=120)
-            >>> questi.text("Precio:", validate_user=3.0, inicio_rango=0.0)
+        Examples:
+            >>> # Solicitar texto no vacío
+            >>> texto = self.text("Ingrese su nombre:")
+
+            >>> # Solicitar entero en rango específico
+            >>> edad = self.text("Ingrese su edad:", 2.0, 0, 120)
+
+            >>> # Solicitar float mayor a cero
+            >>> precio = self.text("Ingrese el precio:", 3.1, 0.01)
+
+            >>> # Validación personalizada
+            >>> email = self.text("Email:", lambda x: "@" in x and "." in x)
         """
+
+        def validate_int_range(
+            x: str, min_val: float = float("-inf"), max_val: float = float("inf")
+        ) -> bool:
+            """Valida que una cadena sea un entero dentro del rango especificado.
+
+            Args:
+                x (str): Cadena a validar.
+                min_val (float, optional): Valor mínimo permitido.
+                    Defaults to float("-inf").
+                max_val (float, optional): Valor máximo permitido.
+                    Defaults to float("inf").
+
+            Returns:
+                bool: True si la cadena es un entero válido dentro del rango,
+                    False en caso contrario.
+            """
+            x = x.strip()
+            return is_int(x) and min_val <= int(x) <= max_val
+
+        def is_int(x: str) -> bool:
+            """Verifica si una cadena representa un número entero.
+
+            Args:
+                x (str): Cadena a verificar.
+
+            Returns:
+                bool: True si la cadena representa un entero, False en caso contrario.
+            """
+            return x.lstrip("-").isdigit()
+
+        def validate_float_range(
+            x: str, min_val: float = float("-inf"), max_val: float = float("inf")
+        ) -> bool:
+            """Valida que una cadena sea un float dentro del rango especificado.
+
+            Args:
+                x (str): Cadena a validar.
+                min_val (float, optional): Valor mínimo permitido.
+                    Defaults to float("-inf").
+                max_val (float, optional): Valor máximo permitido.
+                    Defaults to float("inf").
+
+            Returns:
+                bool: True si la cadena es un float válido dentro del rango,
+                    False en caso contrario.
+            """
+            x = x.strip()
+            return is_float(x) and min_val <= float(x) <= max_val
+
+        def is_float(x: str) -> bool:
+            """Verifica si una cadena representa un número flotante.
+
+            Args:
+                x (str): Cadena a verificar.
+
+            Returns:
+                bool: True si la cadena representa un float, False en caso contrario.
+            """
+            return x.lstrip("-").replace(".", "", 1).isdigit() and x.count(".") <= 1
 
         @self._questi_handler(exit_callback)
         def _questi_text() -> Optional[str]:
+            """Función interna que maneja la lógica de solicitud de texto.
+
+            Returns:
+                Optional[str]: El texto ingresado por el usuario o None si se cancela.
+
+            Raises:
+                ValueError: Si el tipo de validación no es reconocido.
+            """
             validaciones: Dict[float, Callable[[str], bool]] = {
                 1.0: lambda x: x.strip() != "",
-                2.0: lambda x: x.strip() != ""
-                and x.isdigit()
-                and inicio_rango <= int(x) <= fin_rango,
-                2.1: lambda x: x.strip() != ""
-                and x.isdigit()
-                and inicio_rango <= int(x),
-                2.2: lambda x: x.strip() != "" and x.isdigit() and int(x) <= fin_rango,
-                3.0: lambda x: x.strip() != ""
-                and x.replace(".", "", 1).isdigit()
-                and x.count(".") <= 1
-                and inicio_rango <= float(x) <= fin_rango,
-                3.1: lambda x: x.strip() != ""
-                and x.replace(".", "", 1).isdigit()
-                and x.count(".") <= 1
-                and inicio_rango <= float(x),
-                3.2: lambda x: x.strip() != ""
-                and x.replace(".", "", 1).isdigit()
-                and x.count(".") <= 1
-                and float(x) <= fin_rango,
+                2.0: lambda x: validate_int_range(x, inicio_rango, fin_rango),
+                2.1: lambda x: validate_int_range(x, inicio_rango),
+                2.2: lambda x: validate_int_range(x, max_val=fin_rango),
+                3.0: lambda x: validate_float_range(x, inicio_rango, fin_rango),
+                3.1: lambda x: validate_float_range(x, inicio_rango),
+                3.2: lambda x: validate_float_range(x, max_val=fin_rango),
             }
+
             # Mucha comprobacion sin necesidad ya que validate_user lo da el programador no el usuario pero bueno. Lo pide Pylance
             if isinstance(validate_user, float) and validate_user in validaciones:
                 return questionary.text(
@@ -161,7 +233,7 @@ class Questi:
         """
         print(
             "\n",
-            Questi().modulo_mensajes.get(
+            questi.modulo_mensajes.get(
                 inspect.stack()[1].filename.split("\\")[-1],
                 mensaje,
             ),
