@@ -10,7 +10,7 @@ Este módulo proporciona una interfaz simplificada para questionary con:
 Example:
     >>> from questi_module import questi
     >>> nombre = questi.text("¿Cuál es tu nombre?")
-    >>> edad = questi.text("¿Cuál es tu edad?", validate_user=2.0, inicio_rango=0, fin_rango=120)
+    >>> edad = questi.text("¿Cuál es tu edad?", validate_user=2.0, inicio_rango=0, fin_rango=120) 
 """
 
 from functools import wraps
