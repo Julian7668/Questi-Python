@@ -1,404 +1,146 @@
-"""Módulo para solicitar entrada de usuario con validación personalizada.
+"""
+Instancia global de la clase Questi para uso directo en aplicaciones.
 
-Este módulo proporciona una clase wrapper para la librería questionary que
-facilita la recolección de entrada del usuario con validación automática y
-manejo elegante de cancelaciones.
+Esta instancia permite usar las funcionalidades de Questi sin necesidad de crear
+una nueva instancia cada vez. Es la forma recomendada de usar la clase en la
+mayoría de casos.
 
-Características principales:
-    - Validación automática de entrada vacía
-    - Validación de números enteros y flotantes dentro de rangos específicos
-    - Manejo automático de cancelación con mensajes personalizados
-    - Soporte para validadores personalizados
-    - Confirmaciones y selecciones interactivas
-
-Example:
-    Uso básico del módulo:
-
-    ```python
-    # Crear instancia
-    questi = Questi()
-
-    # Solicitar texto no vacío
-    nombre = questi.text("Ingresa tu nombre: ")
-
-    # Solicitar número entero en rango
-    edad = questi.text("Ingresa tu edad: ", validate_user=2, inicio_rango=0, fin_rango=120)
-
-    # Solicitar número flotante
-    precio = questi.text("Precio: ", validate_user=3.0, inicio_rango=0, fin_rango=1000)
-
-    # Usar validador personalizado
-    email = questi.text("Email: ", validate_user=lambda x: "@" in x)
-
-    # Confirmación
-    continuar = questi.confirm("¿Deseas continuar?")
-
-    # Selección múltiple
-    opcion = questi.select("Elige:", ["Opción A", "Opción B"])
-    ```
-
-Note:
-    Requiere la instalación de questionary: `pip install questionary`
-
-Author:
-    Estudiante de bachillerato - Proyecto de programación en Python
+Examples:
+    >>> from questi_module import questi
+    >>> nombre = questi.text("Su nombre:")
+    >>> confirmado = questi.confirm("¿Continuar?")
+    >>> questi.exit()
 """
 
 from functools import wraps
 import sys
 import time
 import inspect
+from typing import Callable, Union, Optional, Dict, Any, NoReturn
 import questionary
 
 
 class Questi:
-    """Clase para manejar entradas de usuario con questionary de forma elegante.
+    """
+    Una clase wrapper para questionary que proporciona validaciones automáticas y manejo elegante de salidas.
 
-    Proporciona métodos decorados para text(), select() y confirm() con manejo
-    automático de cancelaciones y validaciones personalizadas. Permite crear
-    interfaces de línea de comandos interactivas y robustas.
-
-    La clase implementa un sistema de validación flexible que soporta múltiples
-    tipos de entrada: texto básico, números enteros, números flotantes, y
-    validadores personalizados. Cada método maneja automáticamente las
-    cancelaciones del usuario y proporciona mensajes de despedida específicos
-    por módulo.
+    Esta clase encapsula las funcionalidades de questionary añadiendo validaciones predefinidas,
+    manejo automático de errores y salidas personalizadas según el módulo que la utilice.
+    Simplifica la creación de interfaces de línea de comandos interactivas con validación robusta.
 
     Attributes:
-        modulo_mensajes (dict): Diccionario con mensajes de despedida específicos
-            por archivo. Mapea nombres de archivos a mensajes personalizados que
-            se muestran cuando el usuario cancela la operación.
+        modulo_mensajes (Dict[str, str]): Diccionario que mapea nombres de archivos Python
+            a mensajes de despedida personalizados. Permite mostrar mensajes específicos
+            según el módulo que esté utilizando la clase.
 
-    Example:
-        Uso básico de la clase:
+    Examples:
+        Uso básico:
+            >>> questi = Questi()
+            >>> nombre = questi.text("Ingrese su nombre:")
+            >>> edad = questi.text("Ingrese su edad:", validate_user=2.0, inicio_rango=0, fin_rango=120)
+            >>> confirmacion = questi.confirm("¿Está seguro?")
 
-        ```python
-        questi = Questi()
-
-        # Entrada de texto básica
-        nombre = questi.text("Ingresa tu nombre: ")
-
-        # Entrada numérica con validación
-        edad = questi.text("Edad: ", validate_user=2.0, inicio_rango=0, fin_rango=120)
-
-        # Entrada de decimal
-        altura = questi.text("Altura (m): ", validate_user=3.0, inicio_rango=0, fin_rango=3)
-
-        # Selección múltiple
-        opcion = questi.select("Elige una opción:", ["A", "B", "C"])
-
-        # Confirmación
-        continuar = questi.confirm("¿Deseas continuar?")
-
-        # Salir del programa
-        questi.exit()
-        ```
-
-    Note:
-        Todas las funciones manejan automáticamente las cancelaciones del usuario
-        (Ctrl+C o ESC) con mensajes de despedida apropiados y terminación limpia
-        del programa.
-
-    See Also:
-        questionary: Librería base utilizada para la interfaz interactiva
+        Con validaciones personalizadas:
+            >>> email = questi.text("Email:", validate_user=lambda x: "@" in x and "." in x)
+            >>> opcion = questi.select("Elija una opción:", ["Opción 1", "Opción 2", "Opción 3"])
     """
 
-    modulo_mensajes = {
+    modulo_mensajes: Dict[str, str] = {
         "calculadora_de_calificaciones.py": "¡Gracias por usar la calculadora de calificaciones!",
         "generador_de_contrasenas.py": "¡Gracias por usar el generador de contraseñas!",
     }
 
-    def _questi_handler(self, questionary_func):
-        """Decorador para manejar la validación y cancelación en funciones questionary.
+    def _questi_handler(
+        self, questionary_func: Callable[..., Any]
+    ) -> Callable[..., Any]:
+        """
+        Decorador interno que maneja las respuestas de questionary y las salidas automáticas.
 
-        Este decorador proporciona un manejo uniforme de cancelaciones del usuario
-        y validación de entradas para todas las funciones questionary. Intercepta
-        las respuestas None (que indican cancelación) y ejecuta la secuencia de
-        terminación apropiada.
-
-        El decorador implementa el patrón de manejo de errores para:
-        - Detectar cancelaciones del usuario (None response)
-        - Mostrar mensajes de despedida personalizados por módulo
-        - Terminar el programa de forma elegante
+        Este método privado envuelve las funciones de questionary para proporcionar un
+        comportamiento consistente: si el usuario cancela la operación (Ctrl+C o ESC),
+        automáticamente llama al método exit() para terminar el programa elegantemente.
 
         Args:
-            questionary_func (callable): La función questionary específica a decorar.
-                Debe ser una función que retorne el resultado de la interacción
-                del usuario o None en caso de cancelación.
+            questionary_func (Callable[..., Any]): Función de questionary a envolver.
+                Debe ser una función que retorne un valor o None si es cancelada.
 
         Returns:
-            callable: Función decorada que incluye manejo automático de cancelaciones
-                y validación. La función decorada retorna el mismo tipo que la
-                función original o termina el programa si hay cancelación.
-
-        Example:
-            Uso interno del decorador:
-
-            ```python
-            @self._questi_handler
-            def _questi_text():
-                return questionary.text("Mensaje").ask()
-
-            # Si el usuario cancela, se ejecuta automáticamente:
-            # 1. Mensaje de despedida personalizado
-            # 2. Pausa de 1 segundo
-            # 3. sys.exit(0)
-            ```
+            Callable[..., Any]: Función wrapper que maneja automáticamente las salidas.
+                Si la función original retorna un valor válido, lo devuelve tal como está.
+                Si retorna None (cancelación), ejecuta exit() y termina el programa.
 
         Note:
-            - Este es un método interno y no debe ser llamado directamente
-            - Utiliza inspect.stack() para determinar el archivo que llama
-            - Maneja la terminación de forma limpia con sys.exit(0)
-            - Preserve la signatura original de la función decorada con @wraps
-
-        See Also:
-            modulo_mensajes: Diccionario de mensajes personalizados
-            exit(): Método público para terminación manual del programa
+            Este es un método privado y no debe ser llamado directamente por el usuario.
+            Se utiliza internamente para envolver todas las funciones de entrada.
         """
 
         @wraps(questionary_func)
-        def wrapper(*args, **kwargs):
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
             if entrada := questionary_func(*args, **kwargs):
                 return entrada
             return Questi().exit()
 
         return wrapper
 
-    def exit(self):
-        """Termina la ejecución del programa con un mensaje de despedida personalizado.
-
-        Proporciona una forma elegante de terminar la aplicación mostrando un mensaje
-        de despedida específico según el archivo desde el cual se llama. Utiliza el
-        nombre del archivo que invoca la función para determinar qué mensaje mostrar,
-        cayendo en un mensaje genérico si no hay uno específico configurado.
-
-        El método implementa una secuencia controlada de terminación que incluye:
-        1. Detectar automáticamente el archivo que llama usando inspect.stack()
-        2. Buscar mensaje personalizado en modulo_mensajes
-        3. Mostrar mensaje de despedida (personalizado o genérico)
-        4. Pausa breve para legibilidad
-        5. Terminación limpia del programa
-
-        Returns:
-            None: Esta función nunca retorna ya que termina la ejecución del programa
-                con sys.exit(0).
-
-        Raises:
-            SystemExit: Siempre se ejecuta para terminar el programa con código de
-                salida 0 (terminación exitosa).
-
-        Example:
-            Diferentes formas de usar exit():
-
-            ```python
-            questi = Questi()
-
-            # Salida directa
-            questi.exit()
-
-            # Salida condicional
-            if not questi.confirm("¿Deseas continuar?"):
-                questi.exit()
-
-            # En un menú
-            opcion = questi.select("Elige:", ["Continuar", "Salir"])
-            if opcion == "Salir":
-                questi.exit()
-
-            # Salida después de completar una tarea
-            print("Proceso completado exitosamente.")
-            questi.exit()
-
-            # En manejo de errores
-            try:
-                # código que puede fallar
-                pass
-            except Exception as e:
-                print(f"Error: {e}")
-                questi.exit()
-            ```
-
-        Note:
-            - Los mensajes personalizados se configuran en el diccionario modulo_mensajes
-            - Si no existe mensaje personalizado, usa "¡Gracias por usar!"
-            - La pausa de 1 segundo permite leer el mensaje antes de cerrar
-            - Usa sys.exit(0) para una terminación limpia sin errores
-            - Detecta automáticamente el archivo que llama usando inspect.stack()
-            - Es thread-safe y puede llamarse desde cualquier parte del programa
-
-        See Also:
-            modulo_mensajes (dict): Diccionario con mensajes personalizados por archivo
-            _questi_handler: Decorador que también maneja terminaciones automáticas
-        """
-        print(
-            Questi().modulo_mensajes.get(
-                inspect.stack()[1].filename.split("\\")[-1],
-                "¡Gracias por usar!",
-            )
-        )
-        time.sleep(1)
-        sys.exit(0)
-
     def text(
         self,
         mensaje: str,
-        validate_user=1.0,
-        inicio_rango=float("-inf"),
-        fin_rango=float("inf"),
-    ):
-        """Solicita entrada de texto al usuario con validación personalizada.
+        validate_user: Union[float, Callable[[str], bool]] = 1.0,
+        inicio_rango: float = float("-inf"),
+        fin_rango: float = float("inf"),
+    ) -> str:
+        """
+        Solicita entrada de texto del usuario con validaciones predefinidas o personalizadas.
 
-        Permite recoger texto del usuario con diferentes tipos de validación,
-        desde validación básica de campo no vacío hasta validación numérica
-        (enteros y flotantes) con rangos específicos o validadores personalizados.
-
-        El método soporta múltiples tipos de validación identificados por códigos
-        numéricos, cada uno con comportamientos específicos para diferentes casos
-        de uso. Los validadores personalizados permiten lógica de validación
-        completamente customizada.
+        Este método proporciona una interfaz simplificada para obtener entrada de texto
+        con múltiples tipos de validación incorporados. Soporta validaciones para texto
+        simple, números enteros, números decimales, y rangos específicos.
 
         Args:
-            mensaje (str): El mensaje/prompt a mostrar al usuario. Debe ser claro
-                y descriptivo sobre qué tipo de entrada se espera.
-            validate_user (float or callable, optional): Tipo de validación a aplicar.
-                Opciones disponibles:
-                    - 1.0: Valida que la entrada no esté vacía (default)
-                    - 2.0: Número entero dentro del rango [inicio_rango, fin_rango]
-                    - 2.1: Número entero mayor o igual al inicio_rango
-                    - 2.2: Número entero menor o igual al fin_rango
-                    - 3.0: Número flotante dentro del rango [inicio_rango, fin_rango]
-                    - 3.1: Número flotante mayor o igual al inicio_rango
-                    - 3.2: Número flotante menor o igual al fin_rango
-                    - callable: Función personalizada que recibe la entrada y retorna bool
-                    - None/False: Sin validación (acepta cualquier entrada)
-                Defaults to 1.0.
-            inicio_rango (float, optional): Límite inferior para validación numérica.
-                Usado en validaciones 2.0, 2.1, 3.0, 3.1. Para 2.2 y 3.2 actúa
-                como límite superior. Defaults to float("-inf").
-            fin_rango (float, optional): Límite superior para validación numérica.
-                Solo usado en validaciones 2.0 y 3.0 para rangos cerrados.
-                Defaults to float("inf").
+            mensaje (str): El mensaje/prompt que se mostrará al usuario.
+                Debe ser descriptivo y claro sobre qué se espera.
+            validate_user (Union[float, Callable[[str], bool]], optional):
+                Tipo de validación a aplicar. Defaults to 1.0.
+                Opciones predefinidas:
+                - 1.0: Texto no vacío (solo espacios no cuenta como válido)
+                - 2.0: Número entero dentro del rango [inicio_rango, fin_rango]
+                - 2.1: Número entero mayor o igual a inicio_rango
+                - 2.2: Número entero menor o igual a fin_rango
+                - 3.0: Número decimal dentro del rango [inicio_rango, fin_rango]
+                - 3.1: Número decimal mayor o igual a inicio_rango
+                - 3.2: Número decimal menor o igual a fin_rango
+                - Callable: Función personalizada que recibe str y retorna bool
+            inicio_rango (float, optional): Límite inferior para validaciones numéricas.
+                Defaults to float("-inf"). Solo aplica para validaciones 2.x y 3.x.
+            fin_rango (float, optional): Límite superior para validaciones numéricas.
+                Defaults to float("inf"). Solo aplica para validaciones 2.x y 3.x.
 
         Returns:
-            str: La entrada del usuario validada. Siempre retorna un string,
-                incluso para validaciones numéricas (debe convertirse después).
+            str: La entrada del usuario validada. Garantiza que cumple con los criterios
+                especificados en validate_user.
 
         Raises:
-            KeyboardInterrupt: Si el usuario cancela con Ctrl+C, se maneja
-                automáticamente con mensaje de despedida a través del decorador.
-            ValueError: Si validate_user es un tipo no soportado.
-            TypeError: Si el validador personalizado no es callable.
+            SystemExit: Si validate_user no es un valor válido o función callable.
+                También se ejecuta si el usuario cancela la entrada (Ctrl+C).
 
         Examples:
-            Validación básica sin restricciones:
+            Validaciones básicas:
+                >>> name = questi.text("Nombre completo:")  # Solo texto no vacío
+                >>> age = questi.text("Edad:", 2.0, 0, 120)  # Entero entre 0 y 120
+                >>> price = questi.text("Precio:", 3.1, 0)  # Decimal mayor a 0
 
-            >>> questi = Questi()
-            >>> nombre = questi.text("Ingresa tu nombre: ")
-            Ingresa tu nombre: Juan
-            >>> print(nombre)
-            'Juan'
-
-            Validación numérica entera con rango cerrado:
-
-            >>> edad = questi.text("Edad (0-120): ", validate_user=2.0,
-            ...                   inicio_rango=0, fin_rango=120)
-            Edad (0-120): 25
-            >>> edad_int = int(edad)
-            >>> print(edad_int)
-            25
-
-            Validación numérica entera con mínimo:
-
-            >>> cantidad = questi.text("Cantidad mínima: ", validate_user=2.1,
-            ...                       inicio_rango=1)
-            Cantidad mínima: 5
-            >>> print(int(cantidad))
-            5
-
-            Validación numérica entera con máximo:
-
-            >>> intentos = questi.text("Máximo intentos: ", validate_user=2.2,
-            ...                       inicio_rango=10)
-            Máximo intentos: 8
-            >>> print(int(intentos))
-            8
-
-            Validación numérica flotante con rango:
-
-            >>> peso = questi.text("Peso (kg): ", validate_user=3.0,
-            ...                   inicio_rango=0, fin_rango=500)
-            Peso (kg): 75.5
-            >>> print(float(peso))
-            75.5
-
-            Validación flotante con mínimo:
-
-            >>> precio = questi.text("Precio mínimo: ", validate_user=3.1,
-            ...                     inicio_rango=0.01)
-            Precio mínimo: 19.99
-            >>> print(float(precio))
-            19.99
-
-            Validación flotante con máximo:
-
-            >>> descuento = questi.text("Descuento máximo: ", validate_user=3.2,
-            ...                        inicio_rango=100.0)
-            Descuento máximo: 25.5
-            >>> print(float(descuento))
-            25.5
-
-            Validador personalizado para email:
-
-            >>> email = questi.text("Email: ",
-            ...                    validate_user=lambda x: "@" in x and "." in x)
-            Email: usuario@ejemplo.com
-            >>> print(email)
-            'usuario@ejemplo.com'
-
-            Validador personalizado complejo para contraseñas:
-
-            >>> password = questi.text("Password: ",
-            ...                       validate_user=lambda x: len(x) >= 8 and
-            ...                                              any(c.isdigit() for c in x))
-            Password: mipassword123
-            >>> print(len(password))
-            13
-
-            Sin validación (acepta cualquier entrada):
-
-            >>> comentario = questi.text("Comentarios opcionales: ",
-            ...                         validate_user=None)
-            Comentarios opcionales:
-            >>> print(repr(comentario))
-            ''
+            Validación personalizada:
+                >>> email = questi.text("Email:", lambda x: "@" in x and len(x) > 5)
+                >>> codigo = questi.text("Código:", lambda x: x.upper().startswith("ABC"))
 
         Note:
-            - La validación numérica entera (2.x) usa str.isdigit() y int()
-            - La validación numérica flotante (3.x) permite un punto decimal usando replace()
-            - Los validadores personalizados deben retornar True para entrada válida
-            - Una entrada vacía en validación tipo 1.0 será rechazada automáticamente
-            - Los números negativos no son soportados por las validaciones 2.x y 3.x actuales
-            - Para usar los números validados, convierte el resultado con int() o float()
-            - El parámetro inicio_rango tiene diferente comportamiento en 2.2 y 3.2 (actúa como máximo)
-
-        Warning:
-            Las validaciones numéricas actuales no soportan números negativos debido
-            al uso de str.isdigit(). Para números negativos, usa un validador personalizado.
-
-        See Also:
-            select(): Para opciones predefinidas con menú de selección.
-            confirm(): Para confirmaciones sí/no simples.
-            _questi_handler: Decorador que maneja las cancelaciones del usuario.
-
-        Todo:
-            - Agregar soporte nativo para números negativos
-            - Implementar validación de rangos más robusta
-            - Añadir validadores comunes predefinidos (email, URL, etc.)
+            Los números decimales deben usar punto (.) como separador decimal.
+            La validación de rangos es inclusiva en ambos extremos.
         """
 
         @self._questi_handler
-        def _questi_text():
-            validaciones = {
+        def _questi_text() -> Optional[str]:
+            validaciones: Dict[float, Callable[[str], bool]] = {
                 1.0: lambda x: x.strip() != "",
                 2.0: lambda x: x.strip() != ""
                 and x.isdigit()
@@ -420,207 +162,206 @@ class Questi:
                 and x.count(".") <= 1
                 and float(x) <= fin_rango,
             }
-            return (
-                questionary.text(
-                    mensaje, validate=validaciones.get(validate_user)
+            # Mucha comprobacion sin necesidad ya que validate_user lo da el progamador no el usuario pero bueno. Lo pide Pylance
+            if isinstance(validate_user, float) and validate_user in validaciones:
+                return questionary.text(
+                    mensaje, validate=validaciones[validate_user]
                 ).ask()
-                if validate_user in validaciones
-                else validate_user
+            if callable(validate_user):
+                return questionary.text(mensaje, validate=validate_user).ask()
+            return questi.exit_error(
+                "Revise las validaciones disponibles; Ingrese su propio lambda si asi lo desea."
             )
 
         return _questi_text()
 
-    def select(self, mensaje, opciones):
-        """Solicita selección de una opción al usuario desde una lista predefinida.
+    def exit(self, mensaje="¡Gracias por usar!") -> NoReturn:
+        """
+        Termina el programa de manera elegante con un mensaje de despedida personalizado.
 
-        Presenta una lista de opciones al usuario de forma interactiva, permitiendo
-        navegar con las teclas de flecha y seleccionar con Enter. Proporciona una
-        interfaz intuitiva para menús y selecciones múltiples.
-
-        Este método es ideal para casos donde el usuario debe elegir entre opciones
-        predefinidas, como menús de navegación, configuraciones, o cualquier
-        selección donde las opciones son conocidas de antemano.
+        Este método proporciona una salida limpia del programa, mostrando un mensaje
+        personalizado según el módulo que esté ejecutándose. Si el módulo actual está
+        registrado en modulo_mensajes, usa ese mensaje; de lo contrario, usa el mensaje
+        por defecto proporcionado.
 
         Args:
-            mensaje (str): El mensaje/prompt a mostrar al usuario. Debe explicar
-                claramente qué se está seleccionando y proporcionar contexto
-                sobre las opciones disponibles.
-            opciones (list[str]): Lista de opciones disponibles para seleccionar.
-                Cada elemento debe ser un string descriptivo. La lista no debe
-                estar vacía y cada opción debe ser única y clara.
+            mensaje (str, optional): Mensaje de despedida por defecto si no se encuentra
+                un mensaje específico para el módulo actual. Defaults to "¡Gracias por usar!".
 
         Returns:
-            str: La opción seleccionada por el usuario. Retorna exactamente uno
-                de los elementos de la lista opciones tal como fue proporcionado.
-
-        Raises:
-            KeyboardInterrupt: Si el usuario cancela con Ctrl+C o ESC, se maneja
-                automáticamente con mensaje de despedida a través del decorador.
-            ValueError: Si la lista de opciones está vacía (manejado por questionary).
-
-        Example:
-            Diferentes usos de selección:
-
-            ```python
-            questi = Questi()
-
-            # Menú principal simple
-            accion = questi.select("¿Qué deseas hacer?", [
-                "Crear nuevo archivo",
-                "Abrir archivo existente",
-                "Configuraciones",
-                "Salir"
-            ])
-
-            # Selección de configuración
-            lenguaje = questi.select("Selecciona tu lenguaje favorito:", [
-                "Python",
-                "JavaScript",
-                "Java",
-                "C++",
-                "Go"
-            ])
-
-            # Selección con opciones numeradas
-            dificultad = questi.select("Selecciona la dificultad:", [
-                "1. Fácil - Para principiantes",
-                "2. Medio - Con algo de experiencia",
-                "3. Difícil - Para expertos",
-                "4. Extremo - Solo para valientes"
-            ])
-
-            # Menú contextual basado en selección previa
-            if accion == "Configuraciones":
-                config = questi.select("¿Qué configurar?", [
-                    "Tema de color",
-                    "Idioma de interfaz",
-                    "Atajos de teclado",
-                    "Volver al menú principal"
-                ])
-
-            # Selección con validación posterior
-            formato = questi.select("Formato de salida:", ["JSON", "CSV", "XML"])
-            if formato == "CSV":
-                separador = questi.select("Separador CSV:", [",", ";", "|", "\\t"])
-            ```
+            NoReturn: Esta función nunca retorna ya que termina el programa con sys.exit(0).
 
         Note:
-            - Usa las teclas de flecha arriba/abajo para navegar entre opciones
-            - Presiona Enter para seleccionar la opción resaltada
-            - ESC o Ctrl+C para cancelar (manejado automáticamente)
-            - La primera opción está seleccionada por defecto al iniciar
-            - Las opciones se muestran en el mismo orden que se proporcionan
-            - No hay límite en el número de opciones, pero considera la usabilidad
+            - Añade una pausa de 1 segundo antes de terminar para que el usuario pueda leer el mensaje.
+            - Utiliza inspect.stack() para determinar automáticamente el nombre del archivo que llama.
+            - La salida es con código 0 (éxito).
 
-        See Also:
-            text(): Para entrada de texto libre
-            confirm(): Para confirmaciones simples sí/no
-            _questi_handler: Decorador que maneja las cancelaciones
+        Examples:
+            Salida con mensaje por defecto:
+                >>> questi.exit()  # Muestra "¡Gracias por usar!"
+
+            Salida con mensaje personalizado:
+                >>> questi.exit("¡Hasta la vista!")
+
+            Salida automática (desde calculadora_de_calificaciones.py):
+                >>> questi.exit()  # Muestra "¡Gracias por usar la calculadora de calificaciones!"
+        """
+        print(
+            "\n",
+            Questi().modulo_mensajes.get(
+                inspect.stack()[1].filename.split("\\")[-1],
+                mensaje,
+            ),
+        )
+        time.sleep(1)
+        sys.exit(0)
+
+    def exit_error(self, reporte="¡Algo salio mal!") -> NoReturn:
+        """
+        Termina el programa con un mensaje de error y código de salida de falla.
+
+        Este método se utiliza para terminar el programa cuando ocurre un error
+        irrecuperable. Muestra el mensaje de error y termina con código de salida 1,
+        indicando que el programa terminó debido a un error.
+
+        Args:
+            reporte (str, optional): Mensaje de error a mostrar al usuario.
+                Debe ser descriptivo del problema ocurrido.
+                Defaults to "¡Algo salio mal!".
+
+        Returns:
+            NoReturn: Esta función nunca retorna ya que termina el programa con sys.exit(1).
+
+        Note:
+            - Añade una pausa de 1 segundo antes de terminar para que el usuario pueda leer el error.
+            - La salida es con código 1 (error).
+            - Se utiliza internamente cuando las validaciones fallan o hay errores de configuración.
+
+        Examples:
+            Error genérico:
+                >>> questi.exit_error()  # Muestra "¡Algo salio mal!"
+
+            Error específico:
+                >>> questi.exit_error("Archivo de configuración no encontrado")
+                >>> questi.exit_error("Formato de datos inválido en línea 15")
+        """
+        print(f"\n{reporte}")
+        time.sleep(1)
+        sys.exit(1)
+
+    def select(
+        self,
+        mensaje: str = "Elija alguna de las siguientes opciones:",
+        opciones: list[str] | None = None,
+    ) -> str:
+        """
+        Presenta una lista de opciones al usuario para que seleccione una usando las flechas del teclado.
+
+        Este método crea un menú interactivo donde el usuario puede navegar entre las opciones
+        usando las flechas del teclado y seleccionar con Enter. Proporciona una interfaz
+        más intuitiva que escribir texto para selecciones múltiples. Si no se proporcionan
+        opciones, utiliza opciones por defecto ["A.", "B.", "C."].
+
+        Args:
+            mensaje (str, optional): El mensaje/prompt que se mostrará encima de las opciones.
+                Debe explicar claramente qué se está seleccionando.
+                Defaults to "Elija alguna de las siguientes opciones:".
+            opciones (list[str] | None, optional): Lista de strings que representan las opciones
+                disponibles. Cada string será una opción seleccionable en el menú.
+                Si es None, se usarán opciones por defecto ["A.", "B.", "C."].
+                Defaults to None.
+
+        Returns:
+            str: El primer carácter de la opción seleccionada por el usuario.
+                Por ejemplo, si selecciona "Crear archivo", retorna "C".
+                Si usa opciones por defecto y selecciona "A.", retorna "A".
+
+        Raises:
+            SystemExit: Si el usuario cancela la selección (Ctrl+C o ESC).
+
+        Examples:
+            Menú con opciones por defecto:
+                >>> opcion = questi.select()  # Usa mensaje y opciones por defecto
+                >>> print(f"Seleccionó: {opcion}")  # Imprime "A", "B", o "C"
+
+            Menú simple personalizado:
+                >>> opcion = questi.select("Seleccione una opción:", ["Crear", "Editar", "Eliminar"])
+                >>> print(f"Seleccionó: {opcion}")  # Imprime "C", "E", o "E"
+
+            Menú de configuración:
+                >>> tema = questi.select(
+                ...     "Elija el tema de la aplicación:",
+                ...     ["Claro", "Oscuro", "Automático"]
+                ... )  # Retorna "C", "O", o "A"
+
+            Menú solo con mensaje personalizado:
+                >>> nivel = questi.select("Seleccione el nivel:")
+                # Muestra ["A.", "B.", "C."] y retorna "A", "B", o "C"
+
+        Note:
+            - El usuario navega con las flechas arriba/abajo del teclado.
+            - Se selecciona con Enter.
+            - Se puede cancelar con Ctrl+C o ESC (esto termina el programa).
+            - La primera opción aparece seleccionada por defecto.
+            - IMPORTANTE: Solo retorna el primer carácter de la opción seleccionada, no la opción completa.
+            - Si no proporciona opciones, automáticamente usa ["A.", "B.", "C."].
         """
 
         @self._questi_handler
-        def _questi_select():
-            return questionary.select(mensaje, choices=opciones).ask()
+        def _questi_select() -> Optional[str]:
+            choices = opciones if opciones else ["A.", "B.", "C."]
+            return (questionary.select(mensaje, choices=choices).ask())[0]
 
         return _questi_select()
 
-    def confirm(self, mensaje):
-        """Solicita una confirmación sí/no al usuario.
+    def confirm(self, mensaje: str) -> bool:
+        """
+        Solicita una confirmación sí/no del usuario.
 
-        Presenta una pregunta de confirmación al usuario que puede responder
-        con 'y' (sí/yes) o 'n' (no). Es útil para confirmar acciones importantes,
-        validar decisiones del usuario, o implementar puntos de control en el
-        flujo del programa donde se requiere confirmación explícita.
-
-        Este método es especialmente valioso para acciones destructivas,
-        configuraciones importantes, o cualquier operación que el usuario
-        podría querer reconsiderar antes de ejecutar.
+        Este método presenta una pregunta de confirmación al usuario que debe responder
+        con 'y' (yes/sí) o 'n' (no). Es útil para confirmar acciones importantes,
+        eliminar datos, o cualquier operación que requiera confirmación explícita.
 
         Args:
             mensaje (str): La pregunta de confirmación a mostrar al usuario.
-                Debe ser una pregunta clara y específica que se pueda responder
-                con sí/no. Se recomienda usar lenguaje directo y explicar las
-                consecuencias de confirmar cuando sea relevante.
+                Debe estar formulada de manera que una respuesta "sí" indique
+                confirmación y "no" indique cancelación.
 
         Returns:
-            bool: True si el usuario confirma (responde 'y' o 'Y'), False si no
-                confirma (responde 'n' o 'N'). El valor de retorno puede usarse
-                directamente en condiciones if/while.
+            bool: True si el usuario confirma (responde 'y'), False si rechaza (responde 'n').
 
         Raises:
-            KeyboardInterrupt: Si el usuario cancela con Ctrl+C o ESC, se maneja
-                automáticamente con mensaje de despedida a través del decorador.
+            SystemExit: Si el usuario cancela la confirmación (Ctrl+C o ESC).
 
-        Example:
-            Diferentes usos de confirmación:
+        Examples:
+            Confirmación de eliminación:
+                >>> if questi.confirm("¿Está seguro de que desea eliminar este archivo?"):
+                ...     eliminar_archivo()
+                ... else:
+                ...     print("Operación cancelada")
 
-            ```python
-            questi = Questi()
+            Confirmación de guardado:
+                >>> guardar = questi.confirm("¿Desea guardar los cambios?")
+                >>> if guardar:
+                ...     guardar_documento()
 
-            # Confirmación básica de continuación
-            if questi.confirm("¿Deseas continuar con el proceso?"):
-                print("Continuando...")
-            else:
-                print("Proceso cancelado.")
-
-            # Confirmación de acción destructiva
-            if questi.confirm("¿Estás seguro de que deseas eliminar todos los archivos?"):
-                eliminar_archivos()
-                print("Archivos eliminados.")
-            else:
-                print("Operación cancelada por seguridad.")
-
-            # Confirmación en bucle de validación
-            while True:
-                nombre = questi.text("Ingresa tu nombre: ")
-                if questi.confirm(f"¿'{nombre}' es correcto?"):
-                    break
-                print("Por favor, ingresa nuevamente tu nombre.")
-
-            # Confirmación para guardar cambios
-            if datos_modificados:
-                if questi.confirm("Hay cambios sin guardar. ¿Deseas guardarlos?"):
-                    guardar_datos()
-                    print("Datos guardados exitosamente.")
-
-            # Confirmación de configuración
-            configuracion_avanzada = questi.confirm("¿Deseas habilitar opciones avanzadas?")
-            if configuracion_avanzada:
-                opciones_avanzadas = True
-                print("Modo avanzado activado.")
-
-            # Confirmación múltiple anidada
-            if questi.confirm("¿Deseas realizar una copia de seguridad?"):
-                if questi.confirm("¿Incluir archivos temporales en la copia?"):
-                    crear_backup(incluir_temp=True)
-                else:
-                    crear_backup(incluir_temp=False)
-
-            # Confirmación con salida del programa
-            if not questi.confirm("¿Deseas continuar usando el programa?"):
-                questi.exit()
-            ```
+            Confirmación de salida:
+                >>> if questi.confirm("¿Desea salir del programa?"):
+                ...     questi.exit("¡Hasta luego!")
 
         Note:
-            - Presiona 'y', 'Y', 's', o 'S' para confirmar (sí)
-            - Presiona 'n' o 'N' para rechazar (no)
-            - ESC o Ctrl+C para cancelar (manejado automáticamente)
-            - El valor por defecto suele ser 'No' para mayor seguridad
-            - Se recomienda ser específico en las preguntas para evitar confusión
-            - Útil para implementar puntos de control en operaciones críticas
-
-        See Also:
-            text(): Para entrada de texto libre
-            select(): Para selección entre múltiples opciones
-            exit(): Para terminar programa tras confirmación negativa
-            _questi_handler: Decorador que maneja las cancelaciones
+            - El usuario responde con 'y' para sí o 'n' para no.
+            - Por defecto, 'n' (no) está seleccionado.
+            - Se puede cambiar la selección con las flechas y confirmar con Enter.
+            - Cancelar con Ctrl+C o ESC termina el programa.
         """
 
         @self._questi_handler
-        def _questi_confirm():
+        def _questi_confirm() -> Optional[bool]:
             return questionary.confirm(mensaje).ask()
 
         return _questi_confirm()
 
 
-questi = Questi()
+# Instancia global para uso directo
+questi: Questi = Questi()
