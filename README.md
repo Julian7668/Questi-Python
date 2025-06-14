@@ -1,127 +1,193 @@
-# Questi Module 🎯
+# 🎯 Questi - Wrapper Inteligente para Questionary
 
-Un wrapper elegante y robusto para la librería `questionary` que simplifica la creación de interfaces de línea de comandos interactivas con manejo automático de errores y validaciones predefinidas.
+[![Python](https://img.shields.io/badge/Python-3.8+-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Code Style](https://img.shields.io/badge/Code%20Style-Black-000000.svg)](https://github.com/psf/black)
 
-## ✨ Características
+Un wrapper elegante y poderoso para `questionary` que simplifica la creación de interfaces de línea de comandos interactivas con manejo automático de errores, validaciones predefinidas y callbacks personalizables.
 
-- **Manejo automático de salidas**: Gestiona elegantemente las interrupciones del usuario (Ctrl+C, ESC)
-- **Validaciones predefinidas**: Soporte para texto, enteros y flotantes con rangos personalizables
-- **Mensajes personalizados**: Mensajes de despedida específicos por módulo
-- **Callbacks customizables**: Funciones personalizadas para manejar salidas
-- **Interfaz simplificada**: API intuitiva para entrada de texto, menús de selección y confirmaciones
-- **Documentación completa**: Type hints y docstrings detallados
+## ✨ Características Principales
 
-## 🚀 Instalación
+- 🛡️ **Manejo automático de salidas**: Captura Ctrl+C, ESC y otras interrupciones elegantemente
+- ✅ **Validaciones predefinidas**: Para enteros, flotantes y strings con rangos personalizables
+- 🎨 **Mensajes personalizados**: Por módulo/archivo para una experiencia más pulida
+- 🔧 **Callbacks de salida**: Ejecuta funciones personalizadas antes de terminar
+- 📝 **Documentación completa**: Docstrings detallados y ejemplos de uso
+- 🚀 **Fácil de usar**: Una sola instancia global `questi` para todas tus necesidades
+
+## 🚀 Instalación Rápida
 
 ```bash
+# Clona el repositorio
+git clone https://github.com/tu-usuario/questi-module.git
+cd questi-module
+
+# Instala la dependencia
 pip install questionary
 ```
 
-## 📖 Uso Básico
+## 💡 Uso Básico
 
-### Importar el módulo
 ```python
 from questi_module import questi
-```
 
-### Entrada de texto simple
-```python
+# Entrada de texto simple
 nombre = questi.text("¿Cuál es tu nombre?")
-```
 
-### Validación de enteros con rango
-```python
-edad = questi.text("¿Cuál es tu edad?", validate_user=2.0, inicio_rango=0, fin_rango=120)
-```
+# Validación de enteros con rango
+edad = questi.text(
+    "¿Cuál es tu edad?", 
+    validate_user=2.0,  # Validar entero
+    inicio_rango=0, 
+    fin_rango=120
+)
 
-### Validación de flotantes
-```python
-precio = questi.text("Ingrese el precio:", validate_user=3.1, inicio_rango=0.01)
-```
+# Validación de flotantes
+peso = questi.text(
+    "¿Cuál es tu peso en kg?",
+    validate_user=3.0,  # Validar flotante
+    inicio_rango=0.0,
+    fin_rango=300.0
+)
 
-### Menú de selección
-```python
+# Menú de selección
 opciones = ["1. Crear usuario", "2. Eliminar usuario", "3. Salir"]
-eleccion = questi.select("¿Qué desea hacer?", opciones, indice=0)
-```
+eleccion = questi.select("¿Qué desea hacer?", opciones)
 
-### Confirmación
-```python
+# Confirmación
 if questi.confirm("¿Está seguro de continuar?"):
-    print("Continuando...")
+    print("¡Continuando!")
 ```
 
-## 🔧 Tipos de Validación
+## 🎯 Ejemplos Avanzados
 
-| Código | Descripción | Ejemplo |
-|--------|-------------|---------|
-| `1.0` | Texto no vacío | `questi.text("Nombre:", 1.0)` |
-| `2.0` | Entero en rango [min, max] | `questi.text("Edad:", 2.0, 0, 120)` |
-| `2.1` | Entero >= min | `questi.text("Cantidad:", 2.1, 1)` |
-| `2.2` | Entero <= max | `questi.text("Puntos:", 2.2, fin_rango=100)` |
-| `3.0` | Float en rango [min, max] | `questi.text("Precio:", 3.0, 0.0, 999.99)` |
-| `3.1` | Float >= min | `questi.text("Temperatura:", 3.1, -273.15)` |
-| `3.2` | Float <= max | `questi.text("Porcentaje:", 3.2, fin_rango=100.0)` |
-| `función` | Validación personalizada | `questi.text("Email:", lambda x: "@" in x)` |
+### Validación Personalizada
 
-## 🎨 Ejemplos Avanzados
-
-### Validación personalizada
 ```python
 def validar_email(email):
-    return "@" in email and "." in email.split("@")[1]
+    return "@" in email and "." in email
 
-email = questi.text("Ingrese su email:", validate_user=validar_email)
+email = questi.text(
+    "Ingrese su email:",
+    validate_user=validar_email
+)
 ```
 
-### Callback personalizado de salida
+### Callback de Salida Personalizado
+
 ```python
-def mi_callback():
-    print("¡Operación cancelada!")
-    return None
+def guardar_y_salir():
+    print("Guardando datos...")
+    # Lógica de guardado aquí
+    questi.exit("¡Datos guardados exitosamente!")
 
-resultado = questi.text("Dato:", exit_callback=mi_callback)
+nome = questi.text(
+    "Ingrese el nombre del proyecto:",
+    exit_callback=guardar_y_salir
+)
 ```
 
-### Configurar mensajes por módulo
+### Conversión de Tipos Automática
+
 ```python
-# Agregar mensaje personalizado para tu archivo
-questi.modulo_mensajes["mi_script.py"] = "¡Gracias por usar mi aplicación!"
+# Retorna automáticamente como entero
+numero = questi.text(
+    "Ingrese un número:",
+    validate_user=2.0,
+    what_return=int
+)
+
+# Retorna automáticamente como flotante
+precio = questi.text(
+    "Ingrese el precio:",
+    validate_user=3.0,
+    what_return=float
+)
 ```
 
-## 🏗️ Estructura del Código
+## 📚 API Reference
 
+### `questi.text()`
+
+Solicita entrada de texto con validaciones opcionales.
+
+**Parámetros:**
+- `mensaje` (str): Mensaje a mostrar al usuario
+- `validate_user` (Union[float, Callable]): Tipo de validación:
+  - `1.0`: String no vacío
+  - `2.0`: Entero válido
+  - `3.0`: Flotante válido
+  - `Callable`: Función personalizada
+- `inicio_rango` (float): Valor mínimo para números
+- `fin_rango` (float): Valor máximo para números
+- `exit_callback` (Callable): Función a ejecutar al cancelar
+- `what_return` (type): Tipo de retorno (str, int, float, bool)
+- `use_strip` (bool): Aplicar strip() al resultado
+
+### `questi.select()`
+
+Muestra un menú de selección.
+
+**Parámetros:**
+- `mensaje` (str): Texto del menú
+- `opciones` (list[str]): Lista de opciones
+- `indice` (slice): Índice del carácter a retornar
+- `exit_callback` (Callable): Función a ejecutar al cancelar
+- `what_return` (type): Tipo de retorno
+
+### `questi.confirm()`
+
+Solicita confirmación (Sí/No).
+
+**Parámetros:**
+- `mensaje` (str): Pregunta de confirmación
+- `exit_callback` (Callable): Función a ejecutar al cancelar
+
+### `questi.exit()` y `questi.exit_error()`
+
+Terminan el programa elegantemente con mensajes personalizados.
+
+## 🎨 Personalización
+
+### Mensajes por Módulo
+
+```python
+questi.modulo_mensajes.update({
+    "mi_app.py": "¡Gracias por usar Mi App Increíble!",
+    "calculadora.py": "¡Cálculos completados!"
+})
 ```
-questi_module.py
-├── Classe Questi
-│   ├── _questi_handler()    # Decorador para manejo de salidas
-│   ├── text()              # Entrada de texto con validación
-│   ├── select()            # Menú de selección
-│   ├── confirm()           # Confirmación Sí/No
-│   ├── exit()              # Salida elegante
-│   └── exit_error()        # Salida con error
-└── questi (instancia global)
-```
 
-## 🤝 Contribuciones
+## 🤝 Contribuir
 
-Las contribuciones son bienvenidas. Por favor:
+¡Las contribuciones son bienvenidas! Por favor:
 
 1. Fork el proyecto
-2. Crea una rama para tu feature (`git checkout -b feature/nueva-caracteristica`)
-3. Commit tus cambios (`git commit -m 'feat: add nueva característica'`)
-4. Push a la rama (`git push origin feature/nueva-caracteristica`)
+2. Crea una rama para tu feature (`git checkout -b feature/AmazingFeature`)
+3. Commit tus cambios (`git commit -m 'Add: AmazingFeature'`)
+4. Push a la rama (`git push origin feature/AmazingFeature`)
 5. Abre un Pull Request
 
-## 📝 Licencia
+## 📝 Changelog
 
-Este proyecto está bajo la licencia MIT. Ver el archivo `LICENSE` para más detalles.
+### v1.0.0 (2024)
+- ✨ Lanzamiento inicial
+- 🛡️ Manejo automático de interrupciones
+- ✅ Validaciones para enteros, flotantes y strings
+- 🎨 Sistema de mensajes personalizados
+- 📚 Documentación completa
+
+## 📄 Licencia
+
+Este proyecto está bajo la Licencia MIT. Ve el archivo [LICENSE](LICENSE) para más detalles.
 
 ## 🙏 Agradecimientos
 
-- [questionary](https://github.com/tmbo/questionary) - La excelente librería que hace posible este wrapper
-- La comunidad de Python por sus herramientas increíbles
+- [questionary](https://github.com/tmbo/questionary) - La increíble librería base
+- A todos los desarrolladores que hacen que Python sea genial
 
 ---
 
-**¡Hecho con ❤️ para simplificar la creación de CLIs interactivas!**
+**Desarrollado con ❤️ para simplificar las interfaces de línea de comandos**
+
+¿Te gusta el proyecto? ¡Dale una ⭐ en GitHub!
